@@ -65,12 +65,12 @@ def get_current_location():
     if gps_packet.mode < 2:
         reset_boat()
         print("No GPS lock, waiting for better signal")
-        return null, null
+        return None, None
 
     if gps_packet.position_precision < 10:
         reset_boat()
         print("Poor GPS lock, waiting for better signal")
-        return null, null
+        return None, None
 
     if gps.isfinite(gps_packet.lat) and gps.isfinite(gps_packet.lat):
         print(" Lat %.6f Lon %.6f" % (gps_packet.lat, gps_packet.lon))
@@ -173,9 +173,11 @@ def turn_boat(degrees_to_change_by):
 recent_target_headings = []
 recent_current_headings = []
 try:
-    print("Waiting boat")
+    print("Waking boat")
     reset_boat()
     while True:
+        print("Inside loop")
+
         # Target heading
         current_lat, current_lon = get_current_location()
         if not current_lat or not current_lon:
@@ -222,6 +224,9 @@ try:
 
 except KeyboardInterrupt:
     print("Closing")
+
+except:
+    raise
 
 finally:
     print("Finally")
