@@ -12,10 +12,11 @@ import gpsd  # the gpsd interface module
 import pyproj
 import smbus
 import lsm303
+import argparse
 
 ## Config
-TARGET_LAT = 53.034139
-TARGET_LON = 13.307036
+DEFAULT_TARGET_LAT = 53.034139
+DEFAULT_TARGET_LON = 13.307036
 
 SERVO_PIN = 24
 
@@ -174,6 +175,17 @@ def turn_boat(degrees_to_change_by):
 
 
 ############ Main Loop
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-lat", "--latitude", default=DEFAULT_TARGET_LAT)
+parser.add_argument("-lon", "--longitude", default=DEFAULT_TARGET_LON)
+args = parser.parse_args()
+
+TARGET_LAT = args.latitude
+TARGET_LON = args.longitude
+
+print("Target location is {0:10.3f}, {0:10.3f}".format(TARGET_LAT, TARGET_LON))
+
 recent_target_headings = []
 recent_current_headings = []
 print("Waking boat")
