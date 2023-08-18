@@ -1,15 +1,6 @@
-# initio Motor Test
-# Moves: Forward, Reverse, turn Right, turn Left, Stop - then repeat
-# Press Ctrl-C to stop
-#
-# Also demonstrates writing to the LEDs
-#
-# To check wiring is correct ensure the order of movement as above is correct
-# Run using: sudo python motorTest.py
-
-
-## sudo pip3 install --upgrade adafruit-python-shell
-## 
+###
+### This script will point the boat towards a target location and drive towards it
+###
 
 import time
 import board
@@ -17,15 +8,15 @@ import adafruit_lsm303dlh_mag
 from geopy.geocoders import Nominatim
 import robohat
 import RPi.GPIO as gpio
-import gps # the gpsd interface module
+import gps  # the gpsd interface module
 import pyproj
 
-
 ## Config
-SERVO_PIN = 22
-MOTOR_SPEED = 10
 TARGET_LAT = 53.032986
 TARGET_LON = 13.301234
+
+SERVO_PIN = 22
+MOTOR_SPEED = 10
 
 ## GPS Maths
 geodesic = pyproj.Geod(ellps="WGS84")
