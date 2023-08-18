@@ -7,14 +7,17 @@
 # To check wiring is correct ensure the order of movement as above is correct
 # Run using: sudo python motorTest.py
 
-# importing geopy library
+
+## sudo pip3 install --upgrade adafruit-python-shell
+## 
+
 import time
 import board
 import adafruit_lsm303dlh_mag
 from geopy.geocoders import Nominatim
-import robohat, time
-import time, RPi.GPIO as gpio
-import gps  # the gpsd interface module
+import robohat
+import RPi.GPIO as gpio
+import gps # the gpsd interface module
 import pyproj
 
 
