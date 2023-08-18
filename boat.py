@@ -3,6 +3,7 @@
 ###
 
 import time
+import math
 import board
 import adafruit_lsm303dlh_mag
 from geopy.geocoders import Nominatim
@@ -13,8 +14,8 @@ import smbus
 import lsm303
 
 ## Config
-TARGET_LAT = 53.032986
-TARGET_LON = 13.301234
+TARGET_LAT = 53.034139
+TARGET_LON = 13.307036
 
 SERVO_PIN = 24
 
@@ -58,6 +59,8 @@ def get_target_heading(current_lat, current_lon):
 
     print("Target heading: {0:10.3f}".format(target_heading))
 
+    return target_heading
+
 
 def get_current_location():
     gps_packet = gpsd.get_current()
@@ -67,21 +70,22 @@ def get_current_location():
         print("No GPS lock, waiting for better signal")
         return None, None
 
-    if gps_packet.position_precision < 10:
+    precision_x_y, precision_z = gps_packet.position_precision()
+    if precision_x_y < 10:
         reset_boat()
         print("Poor GPS lock, waiting for better signal")
         return None, None
 
-    if gps.isfinite(gps_packet.lat) and gps.isfinite(gps_packet.lat):
-        print(" Lat %.6f Lon %.6f" % (gps_packet.lat, gps_packet.lon))
+    if math.isfinite(gps_packet.lat) and math.isfinite(gps_packet.lat):
+        print("Lat %.6f Lon %.6f" % (gps_packet.lat, gps_packet.lon))
     else:
-        print(" Lat n/a Lon n/a")
+        print("Lat n/a Lon n/a")
 
     return gps_packet.lat, gps_packet.lon
 
 
 def vector_2_degrees(x, y):
-    angle = degrees(atan2(y, x))
+    angle = math.degrees(math.atan2(y, x))
     if angle < 0:
         angle += 360
     return angle
@@ -132,7 +136,7 @@ def turn_boat(degrees_to_change_by):
 
         # Full lock left
         else:
-            p.ChangeDutyCycle(left)
+            servo.value = left
 
             print("Full lock left")
 
@@ -145,7 +149,7 @@ def turn_boat(degrees_to_change_by):
             percentage_difference_in_heading = degrees_to_change_by / 90
 
             servo_position = (
-                center + (right - center) * percentage_difference_in_heading
+                centre + (right - centre) * percentage_difference_in_heading
             )
 
             servo.value = servo_position
@@ -172,62 +176,57 @@ def turn_boat(degrees_to_change_by):
 ############ Main Loop
 recent_target_headings = []
 recent_current_headings = []
-try:
-    print("Waking boat")
-    reset_boat()
-    while True:
-        print("Inside loop")
+print("Waking boat")
+reset_boat()
+while True:
+    # Target heading
+    current_lat, current_lon = get_current_location()
+    if not current_lat or not current_lon:
+        print("No GPS signal")
+        reset_boat()
+        continue
 
-        # Target heading
-        current_lat, current_lon = get_current_location()
-        if not current_lat or not current_lon:
-            print("No GPS signal")
-            reset_boat()
-            continue
+    current_target_heading = get_target_heading(current_lat, current_lon)
+    if not current_target_heading:
+        print("No heading from magnetrometer")
+        reset_boat()
+        continue
 
-        recent_target_headings.append(get_target_heading(current_lat, current_lon))
-        recent_target_headings = recent_target_headings[-10:]
+    recent_target_headings.append(current_target_heading)
+    recent_target_headings = recent_target_headings[-10:]
 
-        average_target_heading = sum(recent_target_headings) / len(
-            recent_target_headings
-        )
+    average_target_heading = sum(recent_target_headings) / len(
+        recent_target_headings
+    )
 
-        # Current heading
-        recent_current_headings.append(get_current_heading())
-        recent_current_headings = recent_current_headings[-10:]
+    # Current heading
+    recent_current_headings.append(get_current_heading())
+    recent_current_headings = recent_current_headings[-10:]
 
-        average_current_heading = sum(recent_current_headings) / len(
-            recent_current_headings
-        )
+    average_current_heading = sum(recent_current_headings) / len(
+        recent_current_headings
+    )
 
-        ## Point Boat
-        difference_in_heading = average_current_heading - average_target_heading
-        turn_boat(difference_in_heading)
+    ## Point Boat
+    difference_in_heading = average_current_heading - average_target_heading
+    turn_boat(difference_in_heading)
 
-        ## Set speed
-        fwd_azimuth, back_azimuth, distance = geodesic.inv(
-            current_lon, current_lat, TARGET_LON, TARGET_LAT
-        )
-        if distance < 1:
-            motor.stop()
-            print("Within 1m of target, stopping")
+    ## Set speed
+    fwd_azimuth, back_azimuth, distance = geodesic.inv(
+        current_lon, current_lat, TARGET_LON, TARGET_LAT
+    )
+    print("Distance to target: {0:10.3f}".format(distance))
+    if distance < 1:
+        motor.stop()
+        print("Within 1m of target, stopping")
 
-        else:
-            max_speed_after = 5
-            speed_percentage = min([distance / max_speed_after, 1])
+    else:
+        max_speed_after = 5
+        speed_percentage = min([distance / max_speed_after, 1])
 
-            motor.forward(MOTOR_SPEED * speed_percentage)
+        motor.forward(MOTOR_SPEED * speed_percentage)
 
-            print("Settings speed to: {0:10.3f}".format(speed_percentage))
+        print("Settings speed to: {0:10.3f}".format(speed_percentage))
 
-        time.sleep(0.5)
+    time.sleep(0.5)
 
-except KeyboardInterrupt:
-    print("Closing")
-
-except:
-    raise
-
-finally:
-    print("Finally")
-    exit(0)
