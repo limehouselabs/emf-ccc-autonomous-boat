@@ -104,6 +104,8 @@ def reset_boat():
     servo.value = centre
     motor.stop()
 
+    print("Resetting boat")
+
 
 def turn_boat(degrees_to_change_by):
     # 0 = straight
@@ -171,6 +173,7 @@ def turn_boat(degrees_to_change_by):
 recent_target_headings = []
 recent_current_headings = []
 try:
+    print("Waiting boat")
     reset_boat()
     while True:
         # Target heading
