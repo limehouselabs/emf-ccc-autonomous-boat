@@ -221,5 +221,6 @@ except KeyboardInterrupt:
     print("Closing")
 
 finally:
+    print("Finally")
     session.close()
     exit(0)
