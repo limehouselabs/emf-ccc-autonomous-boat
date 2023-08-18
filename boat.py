@@ -8,7 +8,7 @@ import adafruit_lsm303dlh_mag
 from geopy.geocoders import Nominatim
 import robohat
 import RPi.GPIO as gpio
-import gps  # the gpsd interface module
+import gpsd  # the gpsd interface module
 import pyproj
 
 ## Config
@@ -23,7 +23,7 @@ geodesic = pyproj.Geod(ellps="WGS84")
 loc = Nominatim(user_agent="GetLoc")
 
 ## GPSd location
-session = gps.gps(mode=gps.WATCH_ENABLE)
+gpsd.connect()
 
 ## Magnetometer
 i2c = board.I2C()  # uses board.SCL and board.SDA
@@ -59,29 +59,24 @@ def get_target_heading(current_lat, current_lon):
 
 
 def get_current_location():
-    session.read()
-    if not (gps.MODE_SET & session.valid):
-        # not useful, probably not a TPV message
-        return null, null
+    gps_packet = gpsd.get_current()
 
-    print(
-        "Mode: %s(%d) Time: "
-        % (("Invalid", "NO_FIX", "2D", "3D")[session.fix.mode], session.fix.mode),
-        end="",
-    )
+    if (gps_packet.mode < 2):
+      reset_boat()
+      print("No GPS lock, waiting for better signal")
+      return null, null
 
-    # print time, if we have it
-    if gps.TIME_SET & session.valid:
-        print(session.fix.time, end="")
-    else:
-        print("n/a", end="")
+    if (gps_packet.position_precision < 10):
+      reset_boat()
+      print("Poor GPS lock, waiting for better signal")
+      return null, null
 
-    if gps.isfinite(session.fix.latitude) and gps.isfinite(session.fix.longitude):
-        print(" Lat %.6f Lon %.6f" % (session.fix.latitude, session.fix.longitude))
+    if gps.isfinite(gps_packet.lat) and gps.isfinite(gps_packet.lat):
+        print(" Lat %.6f Lon %.6f" % (gps_packet.lat, gps_packet.lon))
     else:
         print(" Lat n/a Lon n/a")
 
-    return session.fix.latitude, session.fix.longitude
+    return gps_packet.lat, gps_packet.lon
 
 
 def vector_2_degrees(x, y):
