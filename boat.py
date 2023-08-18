@@ -6,8 +6,7 @@ import time
 import board
 import adafruit_lsm303dlh_mag
 from geopy.geocoders import Nominatim
-import robohat
-import RPi.GPIO as gpio
+from gpiozero import Servo, Motor
 import gpsd  # the gpsd interface module
 import pyproj
 
@@ -15,8 +14,11 @@ import pyproj
 TARGET_LAT = 53.032986
 TARGET_LON = 13.301234
 
-SERVO_PIN = 22
-MOTOR_SPEED = 10
+SERVO_PIN = 24
+
+MOTOR_SPEED = 1 # 0-1
+MOTOR_BRIDGE_PIN_A = 16
+MOTOR_BRIDGE_PIN_B = 16
 
 ## GPS Maths
 geodesic = pyproj.Geod(ellps="WGS84")
@@ -30,20 +32,16 @@ i2c = board.I2C()  # uses board.SCL and board.SDA
 sensor = adafruit_lsm303dlh_mag.LSM303DLH_Mag(i2c)
 
 ## Motor
-robohat.init()
+motor = Motor(MOTOR_BRIDGE_PIN_A, MOTOR_BRIDGE_PIN_B)
 
 ## Servo
-gpio.setmode(gpio.BOARD)
-gpio.setup(SERVO_PIN, gpio.OUT)
-p = gpio.PWM(SERVO_PIN, 200)
+servo = Servo(SERVO_PIN)
 
-left = 50 / 5  # Frequency is 500Hz, so each pulse is 5ms wide
-centre = (
-    150 / 5
-)  # Servos will be fully left at 0.5ms, centred at 1.5ms and fully right at 2.5ms
-right = 250 / 5
+left = -0.5
+centre = 0.25
+right = 0.8
 
-p.start(centre)  # start it at 50% - should be centre of servo
+servo.value = centre
 
 ############
 
@@ -97,8 +95,8 @@ def get_current_heading():
 
 
 def reset_boat():
-    p.changeDutyCycle(centre)  # Centre the servo
-    robohat.stop()  # Stop the motors
+    servo.value = centre
+    motor.stop()
 
 
 def turn_boat(degrees_to_change_by):
@@ -116,7 +114,7 @@ def turn_boat(degrees_to_change_by):
 
             servo_position = centre - left + left * percentage_difference_in_heading
 
-            p.ChangeDutyCycle(servo_position)
+            servo.value = servo_position 
 
             print(
                 "Angling servo to {0:10.3f} percent left".format(
@@ -142,7 +140,7 @@ def turn_boat(degrees_to_change_by):
                 center + (right - center) * percentage_difference_in_heading
             )
 
-            p.ChangeDutyCycle(servo_position)
+            servo.value = servo_position
 
             print(
                 "Angling servo to {0:10.3f} percent right".format(
@@ -152,13 +150,13 @@ def turn_boat(degrees_to_change_by):
 
         # Full lock right
         else:
-            p.ChangeDutyCycle(right)
+            servo.value = right
 
             print("Full lock right")
 
     # Straight
     else:
-        p.ChangeDutyCycle(centre)
+        servo.value = centre
 
         print("Forwards")
 
@@ -200,14 +198,14 @@ try:
             current_lon, current_lat, TARGET_LON, TARGET_LAT
         )
         if distance < 1:
-            robohat.forward(stop)
+            motor.stop()
             print("Within 1m of target, stopping")
 
         else:
             max_speed_after = 5
             speed_percentage = min([distance / max_speed_after, 1])
 
-            robohat.forward(MOTOR_SPEED * speed_percentage)
+            motor.forward(MOTOR_SPEED * speed_percentage)
 
             print("Settings speed to: {0:10.3f}".format(speed_percentage))
 
@@ -217,6 +215,5 @@ except KeyboardInterrupt:
     print("Closing")
 
 finally:
-    robohat.cleanup()
     session.close()
     exit(0)
