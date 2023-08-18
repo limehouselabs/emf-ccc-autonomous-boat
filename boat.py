@@ -18,10 +18,9 @@ TARGET_LON = 13.301234
 
 SERVO_PIN = 24
 
-
 MOTOR_SPEED = 1  # 0-1
 MOTOR_BRIDGE_PIN_A = 16
-MOTOR_BRIDGE_PIN_B = 16
+MOTOR_BRIDGE_PIN_B = 19
 
 ## GPS Maths
 geodesic = pyproj.Geod(ellps="WGS84")
