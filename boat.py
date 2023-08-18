@@ -9,6 +9,8 @@ from geopy.geocoders import Nominatim
 from gpiozero import Servo, Motor
 import gpsd  # the gpsd interface module
 import pyproj
+import smbus
+import lsm303
 
 ## Config
 TARGET_LAT = 53.032986
@@ -16,7 +18,8 @@ TARGET_LON = 13.301234
 
 SERVO_PIN = 24
 
-MOTOR_SPEED = 1 # 0-1
+
+MOTOR_SPEED = 1  # 0-1
 MOTOR_BRIDGE_PIN_A = 16
 MOTOR_BRIDGE_PIN_B = 16
 
@@ -28,8 +31,9 @@ loc = Nominatim(user_agent="GetLoc")
 gpsd.connect()
 
 ## Magnetometer
-i2c = board.I2C()  # uses board.SCL and board.SDA
-sensor = adafruit_lsm303dlh_mag.LSM303DLH_Mag(i2c)
+i2c_channel = 1
+bus = smbus.SMBus(i2c_channel)
+device = lsm303.LSM303(bus)  # Will raise OSError if device is not connected
 
 ## Motor
 motor = Motor(MOTOR_BRIDGE_PIN_A, MOTOR_BRIDGE_PIN_B)
@@ -59,15 +63,15 @@ def get_target_heading(current_lat, current_lon):
 def get_current_location():
     gps_packet = gpsd.get_current()
 
-    if (gps_packet.mode < 2):
-      reset_boat()
-      print("No GPS lock, waiting for better signal")
-      return null, null
+    if gps_packet.mode < 2:
+        reset_boat()
+        print("No GPS lock, waiting for better signal")
+        return null, null
 
-    if (gps_packet.position_precision < 10):
-      reset_boat()
-      print("Poor GPS lock, waiting for better signal")
-      return null, null
+    if gps_packet.position_precision < 10:
+        reset_boat()
+        print("Poor GPS lock, waiting for better signal")
+        return null, null
 
     if gps.isfinite(gps_packet.lat) and gps.isfinite(gps_packet.lat):
         print(" Lat %.6f Lon %.6f" % (gps_packet.lat, gps_packet.lon))
@@ -85,10 +89,13 @@ def vector_2_degrees(x, y):
 
 
 def get_current_heading():
-    magnet_x, magnet_y, _ = sensor.magnetic
+    # Returns x,y,z tuple with values in microtesla
+    mag_data = device.read_mag()
+    magnet_x, magnet_y, magnet_z = mag_data
+
     print(
         "Magnetometer (gauss): ({0:10.3f}, {1:10.3f}, {2:10.3f})".format(
-            mag_x, mag_y, mag_z
+            magnet_x, magnet_y, magnet_z
         )
     )
     return vector_2_degrees(magnet_x, magnet_y)
@@ -114,7 +121,7 @@ def turn_boat(degrees_to_change_by):
 
             servo_position = centre - left + left * percentage_difference_in_heading
 
-            servo.value = servo_position 
+            servo.value = servo_position
 
             print(
                 "Angling servo to {0:10.3f} percent left".format(
