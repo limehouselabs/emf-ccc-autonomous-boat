@@ -72,9 +72,9 @@ def get_current_location():
         return None, None
 
     precision_x_y, precision_z = gps_packet.position_precision()
-    if precision_x_y < 10:
+    if precision_x_y > 10:
         reset_boat()
-        print("Poor GPS lock, waiting for better signal")
+        print("Poor GPS lock, waiting for better signal (%s)" % precision_x_y)
         return None, None
 
     if math.isfinite(gps_packet.lat) and math.isfinite(gps_packet.lat):
@@ -236,7 +236,7 @@ while True:
         max_speed_after = 5
         speed_percentage = min([distance / max_speed_after, 1])
 
-        motor.forward(MOTOR_SPEED * speed_percentage)
+        motor.backward(MOTOR_SPEED * speed_percentage)
 
         print("Settings speed to: {0:10.3f}".format(speed_percentage))
 
