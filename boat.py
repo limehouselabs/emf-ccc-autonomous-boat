@@ -36,6 +36,16 @@ i2c_channel = 1
 bus = smbus.SMBus(i2c_channel)
 device = lsm303.LSM303(bus)  # Will raise OSError if device is not connected
 
+# Finger-in-the-air calibration
+#avg_x = (50 + -20) / 2
+#avg_y = (60 + -25) / 2
+#avg_z = (2 + -5) / 2
+
+# Actual calibration from calibrate.py
+avg_x = (-56.18 + 49.64) / 2
+avg_y = (-37.91 + 68.18) / 2
+avg_z = (-4.80 + 2.24) / 2
+
 ## Motor
 motor = Motor(MOTOR_BRIDGE_PIN_A, MOTOR_BRIDGE_PIN_B)
 
@@ -84,26 +94,28 @@ def get_current_location():
 
     return gps_packet.lat, gps_packet.lon
 
-
-def vector_2_degrees(x, y):
-    angle = math.degrees(math.atan2(y, x))
-    if angle < 0:
-        angle += 360
-    return angle
-
-
-def get_current_heading():
-    # Returns x,y,z tuple with values in microtesla
+def get_current_heading()
+    orientation = [0, -1, 0]  # the board is y backwards, x right according to the ship
+    acc_data = device.read_accel()
     mag_data = device.read_mag()
-    magnet_x, magnet_y, magnet_z = mag_data
 
-    print(
-        "Magnetometer (gauss): ({0:10.3f}, {1:10.3f}, {2:10.3f})".format(
-            magnet_x, magnet_y, magnet_z
-        )
-    )
-    return vector_2_degrees(magnet_x, magnet_y)
+    # Based on https://github.com/pololu/lsm303-arduino/blob/be88750/LSM303.h#L228
+    mag_x, mag_y, mag_z = mag_data
 
+    temp = [mag_x - avg_x, mag_y - avg_y, mag_z - avg_z]
+
+    e = np.cross(temp, acc_data)
+    e /= np.linalg.norm(e)
+    n = np.cross(acc_data, e)
+    n /= np.linalg.norm(n)
+
+    #print(f"east: {e}, north: {n}")
+
+    heading = math.degrees(math.atan2(np.dot(e, orientation), np.dot(n, orientation)))
+    if heading < 0:
+        heading += 360
+
+    return heading
 
 def reset_boat():
     servo.value = centre
