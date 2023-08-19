@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<title>HMS Floating Point 2.000000000001</title>
+
+	<link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="
+https://cdn.jsdelivr.net/npm/leaflet-rotatedmarker@0.2.0/leaflet.rotatedMarker.min.js
+"></script>
+	<style>
+		html, body {
+			height: 100%;
+			margin: 0;
+		}
+		.leaflet-container {
+			height: 400px;
+			width: 600px;
+			max-width: 100%;
+			max-height: 100%;
+		}
+	</style>
+</head>
+<body>
+	<h2>HMS Floating Point 2.0000001 Control</h2>
+	<div id="map" style="width: 100%; height: 90%;"></div>
+	<script>
+		var targets = [];
+		var targetmarkers = new Map();
+
+		var map = L.map('map').setView([53.03415, 13.30660], 19);
+
+		var tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+			maxZoom: 19,
+			attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+		}).addTo(map);
+
+		const boatIcon = L.icon({
+		  iconUrl: "https://upload.wikimedia.org/wikipedia/commons/e/e4/Japanese_Map_symbol_%28Other_Ferry%29.svg",
+		  className: "",
+		  iconSize: [16, 24],
+		  iconAnchor: [8, 12],
+		});
+
+		var boatMarker = L.marker([0, 0], {
+			icon: boatIcon,
+			rotationAngle: 0,
+		}).addTo(map);
+
+		var route;
+
+		function updateBoat(json) {
+			boatMarker.setLatLng([json["lat"], json["lon"]]).update();
+			boatMarker.setRotationAngle(json["heading"]);
+			for (latlon of json["targets"]) {
+				if (!targetmarkers.has(latlon)) {
+					targetmarkers.set(latlon, L.marker([latlon[0], latlon[1]]).addTo(map).on('click', removeTarget));
+				}
+			}
+
+			targetmarkers.forEach(function(value, key, arrrgh){
+				var ll = [value.getLatLng().lat, value.getLatLng().lng];
+				var targethash = {};
+				for (var i = 0; i < json["targets"].length; i++) {
+					targethash[json["targets"][i]] = i;
+				}
+
+				if (!targethash.hasOwnProperty(ll)) { 
+					targetmarkers.delete(key);
+					map.removeLayer(value);
+				}
+			});
+
+			
+			if (route) map.removeLayer(route); 
+			route = new L.Polyline([[json["lat"], json["lon"]]].concat(json["targets"]));
+			map.addLayer(route);
+		};
+
+		window.setInterval((function() {
+			fetch('/boat/get_status')
+				.then((response) => response.json())
+				.then((json) => updateBoat(json));
+		}), 500);
+
+		map.on('click', function(e) {
+			fetch("/boat/add_target", {
+				method: "POST",
+				body: JSON.stringify({
+					lat: e.latlng.lat,
+					lon: e.latlng.lng,
+				}),
+				headers: {
+					"Content-type": "application/json"
+				}
+			});
+		});
+
+		function removeTarget(event) {
+			fetch("/boat/remove_target", {
+				method: "POST",
+				body: JSON.stringify({
+					lat: this.getLatLng().lat,
+					lon: this.getLatLng().lng,
+				}),
+				headers: {
+					"Content-type": "application/json"
+				}
+			});
+		}
+
+	</script>
+</body>
+</html>
